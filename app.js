@@ -1,7 +1,7 @@
 // app.js — Revide 화면과 동작
-import { createStore } from "./store.js";
-import { DEFAULT_CATEGORIES, DEFAULTS_VERSION, NEW_IN_VERSION, INBOX, classify, learnFrom, renameInProfile, hashtagsOf } from "./classify.js";
-import { mdToHtml, plainExcerpt, linksIn } from "./markdown.js";
+import { createStore } from "./store.js?v=5";
+import { DEFAULT_CATEGORIES, DEFAULTS_VERSION, NEW_IN_VERSION, INBOX, classify, learnFrom, renameInProfile, hashtagsOf } from "./classify.js?v=5";
+import { mdToHtml, plainExcerpt, linksIn } from "./markdown.js?v=5";
 
 const CFG = window.REVIDE_CONFIG || {};
 const PREVIEW = String(CFG.previewUrl || "").replace(/\/+$/, "");
@@ -51,10 +51,50 @@ function sourceOf(u) {
 }
 const shortSrc = s => ({ "인스타 릴스": "릴스", "인스타 게시물": "인스타", "인스타그램": "인스타", "유튜브 쇼츠": "쇼츠", "유튜브": "유튜브", "틱톡": "틱톡", "스레드": "스레드" }[s] || "링크");
 function firstLine(s) { return String(s || "").replace(/#[\p{L}\p{N}_]+/gu, "").split("\n").map(x => x.trim()).find(Boolean) || ""; }
+
+/* ---------- 깔끔한 제목 만들기 ----------
+   캡션에서 해시태그·멘션·이모지·링크·"댓글 남기면 링크 드려요" 같은 홍보 문구를 걷어내고
+   첫 문장을 짧게 잘라 제목으로 써요. */
+const CTA = /(comment|댓글|팔로우|follow|link in bio|links?\b|링크|프로필|dm\b|디엠|저장해|save this|share this|공유해|좋아요|like for|tag a|친구 태그|광고|협찬|sponsored|#ad\b)/i;
+function cleanLine(s) {
+  return String(s || "")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[#@][\p{L}\p{N}_.]+/gu, " ")
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]/gu, " ")
+    .replace(/[|•·▶►✔︎✅⬇️👇]+/g, " ")
+    .replace(/\s+/g, " ").trim()
+    .replace(/^[-–—:;,.\s]+|[-–—:;,\s]+$/g, "");
+}
+function shorten(t, max = 32) {
+  // 문장으로 나눠서, 첫 문장이 너무 짧으면(예: "It's October.") 다음 문장을 제목으로
+  const sents = t.split(/(?<=[.!?。])\s+/).map(x => x.replace(/[.。]$/, "").trim()).filter(Boolean);
+  let pick = sents[0] || t;
+  if (pick.length < 14 && sents[1] && sents[1].length <= max + 12) return sents[1];
+  if (pick.length <= max) return pick;
+  // 쉼표에서 자르면 더 자연스러워요
+  const c = pick.slice(0, max + 1).lastIndexOf(",");
+  if (c >= 10) return pick.slice(0, c);
+  const cut = pick.slice(0, max); const sp = cut.lastIndexOf(" ");
+  return (sp > max * 0.5 ? cut.slice(0, sp) : cut).replace(/[,.:;\s]+$/, "") + "…";
+}
+const HYPE = /^(저장\s*필수|필독|꼭\s*저장|저장각|저장해\s*두세요|무조건\s*저장|강력\s*추천|pov|정보|꿀팁\s*공유)\s*[!:.]*\s*/i;
+function niceTitle(text) {
+  const lines = String(text || "").split(/\n+/).map(cleanLine)
+    .map(l => l.replace(HYPE, "").replace(/^(와|과|이랑|랑|은|는|을|를|의|에서|에게)\s+/, "").trim())
+    .filter(l => l.length >= 2 && !(CTA.test(l) && l.length < 60));
+  if (lines.length) return shorten(lines[0]);
+  return "";
+}
+function tagTitle(p) {
+  const tags = (p.hashtags && p.hashtags.length ? p.hashtags : (String(p.description || "").match(/#[\p{L}\p{N}_]+/gu) || []).map(t => t.slice(1)))
+    .filter(t => !/^(reels?|shorts?|fyp|foryou|viral|explore|instagood|추천|일상|데일리)$/i.test(t)).slice(0, 3);
+  return tags.length ? tags.join(" · ") : "";
+}
 function titleOf(it) {
   const p = it.preview || {};
-  const t = it.memo || firstLine(p.title) || firstLine(p.description);
-  if (t) return t.length > 90 ? t.slice(0, 88) + "…" : t;
+  if (it.memo) return shorten(it.memo, 60);
+  const t = niceTitle(p.title) || niceTitle(p.description) || tagTitle(p);
+  if (t) return t;
   if (it.status === "reading") return "미리보기 읽는 중…";
   return `${it.source} 영상`;
 }
@@ -97,7 +137,7 @@ async function addLink(raw, { fromShare = false } = {}) {
   const dup = [...state.items.values()].find(i => normUrl(i.url) === key);
   if (dup) {
     if (fromShare) state.shareId = dup.id;
-    toast(`이미 담겨 있어요 · ${dup.category === INBOX ? "받은 함" : dup.category}`);
+    toast(`이미 담겨 있어요 · ${dup.category === INBOX ? "분류함" : dup.category}`);
     render(); return null;
   }
   const it = { id: uid(), url, memo: "", source: sourceOf(url), createdAt: Date.now(), seen: false, category: INBOX, catBy: "none", preview: null, status: PREVIEW ? "reading" : "none" };
@@ -152,7 +192,7 @@ function setCategory(it, cat, { teach = true } = {}) {
   const profile = learnFrom(state.profile, it, cat);
   state.profile = profile;
   store.setMeta({ profile }).catch(() => {});
-  // 방금 배운 것으로 받은 함의 비슷한 영상도 같이 정리
+  // 방금 배운 것으로 분류함의 비슷한 영상도 같이 정리
   let moved = 0;
   for (const o of inboxItems()) {
     if (o.id === it.id || !o.preview) continue;
@@ -243,7 +283,7 @@ function renderLib() {
   const inbox = inboxItems().length;
   if (inbox) {
     banners.append(el("div", { class: "band dark" },
-      el("div", {}, el("h2", { text: `받은 함에 ${inbox}개가 있어요` }), el("p", { text: "자동으로 분류하지 못한 영상이에요. 한 번씩 누르면 금방 정리돼요." })),
+      el("div", {}, el("h2", { text: `분류함에 ${inbox}개가 있어요` }), el("p", { text: "자동으로 분류하지 못한 영상이에요. 한 번씩 누르면 금방 정리돼요." })),
       el("a", { class: "btn", href: "#inbox" }, "정리하기")));
   }
   const a = state.auth;
@@ -261,7 +301,7 @@ function renderLib() {
   const used = new Set(items.map(i => i.category || INBOX));
   for (const c of state.categories) if (used.has(c)) tabs.append(mk(c, c, counts[c] || 0));
   for (const c of used) if (c !== INBOX && !state.categories.includes(c)) tabs.append(mk(c, c, counts[c] || 0));
-  if (used.has(INBOX)) tabs.append(mk(INBOX, "받은 함", counts[INBOX] || 0));
+  if (used.has(INBOX)) tabs.append(mk(INBOX, "분류함", counts[INBOX] || 0));
   if (state.cat !== "__all" && !used.has(state.cat)) state.cat = "__all";
   // 카드 격자
   const q = state.q.trim().toLowerCase();
@@ -283,7 +323,10 @@ function renderLib() {
 const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M10 8.8v6.4l5.2-3.2z" fill="currentColor"/></svg>',
   check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  ig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
+  yt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10 9.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
+  tt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.5 2.5 2.3 4 5 4.3"/></svg>'
 };
 function svg(name) { const s = el("span", { style: "display:inline-flex" }); s.innerHTML = ICON[name]; return s.firstChild; }
 
@@ -299,22 +342,16 @@ function vthumb(it, { overlays = true } = {}) {
   } else box.append(ph());
   if (overlays) {
     if (it.status === "reading") box.append(el("span", { class: "ov tl reading", text: "읽는 중" }));
-    else box.append(el("span", { class: "ov tl", text: shortSrc(it.source) }));
+    const g = el("span", { class: "ov br", "aria-label": it.source }); g.append(svg(it.source.includes("유튜브") ? "yt" : it.source.includes("틱톡") ? "tt" : "ig")); box.append(g);
     if (it.seen) { const s = el("span", { class: "ov tr seen", "aria-label": "봤음" }); s.append(svg("check")); box.append(s); }
   }
   return box;
 }
 
 function itemCard(it) {
-  const p = it.preview || {};
-  const cat = it.category || INBOX;
   return el("button", { type: "button", class: "vcard" + (it.seen ? " seen" : ""), "aria-label": titleOf(it), onclick: () => { state.detailId = it.id; state.descOpen = false; render(); } },
     vthumb(it),
-    el("div", { class: "vtitle", text: titleOf(it) }),
-    el("div", { class: "vmeta" },
-      el("span", { class: "cat", text: cat === INBOX ? "받은 함" : cat }),
-      el("span", { text: "·" }),
-      el("span", { text: p.author ? "@" + p.author : ago(it.createdAt) })));
+    el("div", { class: "vtitle", text: titleOf(it) }));
 }
 
 function placeLinks(it) {
@@ -391,7 +428,7 @@ function renderItemSheet() {
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape") { if (state.detailId) closeSheet(); else if (state.shareId) { state.shareId = null; render(); } } });
 
-/* ---------- 받은 함 정리 ---------- */
+/* ---------- 분류함 정리 ---------- */
 function renderInbox() {
   const box = $("#triage"); box.replaceChildren();
   const all = inboxItems();
@@ -450,7 +487,7 @@ function renderShareSheet() {
     for (const c of [...new Set([...r.suggestions, ...state.categories])].filter(c => state.categories.includes(c)))
       chips.append(el("button", { type: "button", class: "catbtn", "aria-pressed": String(c === cat), onclick: () => setCategory(it, c) }, c));
   }
-  const status = it.status === "reading" ? "내용을 읽고 분류하는 중이에요…" : cat === INBOX ? "분류를 정하지 못해 받은 함에 넣었어요. 지금 골라도 되고, 나중에 정리해도 돼요." : `‘${cat}’에 넣었어요. 다르면 아래에서 바꿔요.`;
+  const status = it.status === "reading" ? "내용을 읽고 분류하는 중이에요…" : cat === INBOX ? "분류를 정하지 못해 분류함에 넣었어요. 지금 골라도 되고, 나중에 정리해도 돼요." : `‘${cat}’에 넣었어요. 다르면 아래에서 바꿔요.`;
   const close = () => { state.shareId = null; render(); };
   const x = el("button", { type: "button", class: "icon-btn x", "aria-label": "닫기", onclick: close }); x.append(svg("x"));
   box.append(el("div", { class: "sheet-back", onclick: e => { if (e.target === e.currentTarget) close(); } },
@@ -722,7 +759,7 @@ function buildPicker(n) {
       const cb = el("input", { type: "checkbox" }); cb.checked = state.pickSel.has(i.id);
       cb.addEventListener("change", () => { cb.checked ? state.pickSel.add(i.id) : state.pickSel.delete(i.id); addBtn.disabled = !state.pickSel.size; addBtn.textContent = state.pickSel.size ? `선택한 영상 ${state.pickSel.size}개 넣기` : "선택한 영상 넣기"; });
       const pimg = i.preview && i.preview.image ? el("img", { src: i.preview.image, alt: "", loading: "lazy", referrerpolicy: "no-referrer", onerror: e => e.target.replaceWith(el("span", { class: "pthumb" })) }) : el("span", { class: "pthumb" });
-      listBox.append(el("label", { class: "pickrow" }, cb, pimg, el("span", { style: "min-width:0" }, el("b", { text: titleOf(i) }), el("br"), el("span", { class: "muted", text: `${i.category === INBOX ? "받은 함" : i.category} · ${ago(i.createdAt)}` }))));
+      listBox.append(el("label", { class: "pickrow" }, cb, pimg, el("span", { style: "min-width:0" }, el("b", { text: titleOf(i) }), el("br"), el("span", { class: "muted", text: `${i.category === INBOX ? "분류함" : i.category} · ${ago(i.createdAt)}` }))));
     }
   };
   q.addEventListener("input", () => { state.pickerQ = q.value; fill(); });
@@ -855,7 +892,7 @@ function renderSettings() {
     inp.addEventListener("change", () => renameCategory(c, inp.value.trim()));
     inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
     const delB = el("button", { type: "button", class: "btn sm quiet" }, "지우기");
-    delB.addEventListener("click", () => { if (delB.dataset.arm) renameCategory(c, null); else { delB.dataset.arm = "1"; delB.textContent = "영상은 받은 함으로"; delB.style.fontWeight = "600"; } });
+    delB.addEventListener("click", () => { if (delB.dataset.arm) renameCategory(c, null); else { delB.dataset.arm = "1"; delB.textContent = "영상은 분류함으로"; delB.style.fontWeight = "600"; } });
     catList.append(el("div", { class: "catrow" }, inp, el("span", { class: "mono hint", text: `${counts[c] || 0}개` }), delB));
   }
   const newCat = el("input", { class: "input", maxlength: "12", placeholder: "새 분류 이름", "aria-label": "새 분류 이름", style: "padding:var(--s2) var(--s4)" });
@@ -865,7 +902,7 @@ function renderSettings() {
   const forget = el("button", { type: "button", class: "btn sm quiet" }, "배운 기록 지우기");
   forget.addEventListener("click", () => { if (forget.dataset.arm) { store.setMeta({ profile: {} }); toast("배운 기록을 지웠어요"); } else { forget.dataset.arm = "1"; forget.textContent = "정말 지울까요?"; forget.style.fontWeight = "600"; } });
   const cats = el("div", { class: "card" }, el("h2", { text: "분류" }),
-    el("p", { class: "none", text: "이름을 눌러 바로 고칠 수 있어요. 받은 함에서 분류를 고를 때마다 그 영상의 단어와 계정을 기억해서 다음 분류에 써요." }),
+    el("p", { class: "none", text: "이름을 눌러 바로 고칠 수 있어요. 분류함에서 분류를 고를 때마다 그 영상의 단어와 계정을 기억해서 다음 분류에 써요." }),
     catList, el("div", { class: "row" }, newCat, el("button", { type: "button", class: "btn sm line", onclick: addCat }, "추가")),
     el("div", { class: "row", style: "justify-content:space-between" }, el("span", { class: "hint", text: `배운 낱말 ${learned}개 · 기억한 계정 ${Object.keys(state.profile.authors || {}).length}개` }), forget));
   // 백업
@@ -879,7 +916,7 @@ function renderSettings() {
       el("button", { type: "button", class: "btn sm line", onclick: e => exportVault(e.currentTarget) }, "옵시디언으로 내보내기")), file);
   // 상태
   const sys = el("div", { class: "card" }, el("h2", { text: "자동 분류 상태" }),
-    el("p", { class: "none", text: PREVIEW ? "미리보기 서버가 연결되어 있어요. 링크를 담으면 제목·캡션·해시태그를 읽고 분류해요." : "미리보기 서버가 설정되지 않았어요. 지금은 담은 영상이 모두 받은 함으로 가요. (config.js의 previewUrl)" }),
+    el("p", { class: "none", text: PREVIEW ? "미리보기 서버가 연결되어 있어요. 링크를 담으면 제목·캡션·해시태그를 읽고 분류해요." : "미리보기 서버가 설정되지 않았어요. 지금은 담은 영상이 모두 분류함으로 가요. (config.js의 previewUrl)" }),
     PREVIEW ? el("div", { class: "row" }, el("button", { type: "button", class: "btn sm line", onclick: testPreview }, "연결 확인")) : null);
   box.append(share, cats, acct, backup, sys);
 }

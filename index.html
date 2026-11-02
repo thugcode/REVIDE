@@ -120,6 +120,9 @@ main{padding-block:var(--s7) var(--s8)}
 .chip[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--focus);font-weight:600}
 .chip .n{color:var(--ink-2);font-weight:400;font-variant-numeric:tabular-nums}
 
+.stickybar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 44px);z-index:15;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));
+  padding:var(--s2) max(16px,env(safe-area-inset-left,0px));background:rgba(245,245,247,.86);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.stickybar .tabs{margin:0;padding:2px}
 /* ── 세그먼트 (안 본 것/본 것/전체) ── */
 .seg{display:inline-flex;background:rgba(118,118,128,.12);border-radius:var(--r-md);padding:2px;gap:2px;flex:none}
 .seg button{border:0;background:transparent;border-radius:9px;padding:6px 14px;font-size:14px;letter-spacing:-0.224px;color:var(--ink);min-height:32px}
@@ -136,7 +139,7 @@ main{padding-block:var(--s7) var(--s8)}
 /* ── 영상 카드 격자 ── */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s5) var(--s4)}
 .vcard{position:relative;display:flex;flex-direction:column;gap:var(--s2);background:transparent;border:0;padding:0;text-align:left;color:var(--ink);min-width:0;cursor:pointer}
-.vthumb{position:relative;aspect-ratio:4/5;border-radius:var(--r-lg);overflow:hidden;background:#e8e8ed}
+.vthumb{position:relative;aspect-ratio:3/4;border-radius:22px;overflow:hidden;background:#e8e8ed}
 .vthumb img{width:100%;height:100%;object-fit:cover}
 .vthumb .ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s2);color:var(--ink-2);font-size:14px;font-weight:600}
 .vthumb .ph svg{width:28px;height:28px}
@@ -145,10 +148,12 @@ main{padding-block:var(--s7) var(--s8)}
   background:var(--glass);color:var(--ink);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
 .ov.tl{top:var(--s2);left:var(--s2)}
 .ov.tr{top:var(--s2);right:var(--s2)}
+.ov.br{bottom:var(--s2);right:var(--s2);padding:4px;border-radius:50%}
+.ov.br svg{width:14px;height:14px;display:block}
 .ov.seen{background:var(--blue);color:#fff;padding:3px 8px}
 .ov.reading{background:rgba(0,0,0,.6);color:#fff}
 .vcard.seen .vthumb img{opacity:.55}
-.vtitle{font-size:17px;line-height:1.24;font-weight:600;letter-spacing:-0.374px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;padding:0 2px}
+.vtitle{font-size:17px;line-height:1.29;font-weight:400;letter-spacing:-0.374px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;padding:0 2px}
 .vmeta{font-size:14px;letter-spacing:-0.224px;color:var(--ink-2);padding:0 2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:-4px}
 .vmeta .cat{color:var(--ink)}
 .empty{padding:var(--s8) var(--s5);display:flex;flex-direction:column;gap:var(--s3);text-align:center;align-items:center;background:var(--canvas);border-radius:var(--r-lg);grid-column:1/-1}
@@ -179,7 +184,7 @@ main{padding-block:var(--s7) var(--s8)}
 .selpill{border:0;box-shadow:inset 0 0 0 1px var(--hairline);background:var(--canvas);border-radius:var(--r-pill);padding:8px 14px;font-size:14px;min-height:36px;color:var(--ink);max-width:100%}
 .divider{height:1px;background:var(--hairline);margin:0}
 
-/* ── 받은 함 정리 ── */
+/* ── 분류함 정리 ── */
 .triage{background:var(--canvas);border-radius:var(--r-lg);padding:var(--s6);display:grid;grid-template-columns:240px 1fr;gap:var(--s6);align-items:start}
 .triage .vthumb{box-shadow:var(--product-shadow)}
 .triage .tbody{display:flex;flex-direction:column;gap:var(--s3);min-width:0}
@@ -306,7 +311,7 @@ main{padding-block:var(--s7) var(--s8)}
   @media (prefers-reduced-motion:no-preference){.sheet{animation:up .28s cubic-bezier(.2,.8,.2,1) both}@keyframes up{from{transform:translateY(40%)}to{transform:none}}}
 }
 </style>
-<script src="config.js"></script>
+<script src="config.js?v=5"></script>
 </head>
 <body>
 <header class="top">
@@ -314,7 +319,7 @@ main{padding-block:var(--s7) var(--s8)}
     <a class="brand" href="#library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4 4v3.5h3.5"/><path d="M10.5 9.2v5.6l4.6-2.8z" fill="currentColor"/></svg>Revide</a>
     <nav class="tabbar" aria-label="메뉴">
       <a href="#library" data-view="lib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="8.5" rx="2"/><rect x="13.5" y="3.5" width="7" height="8.5" rx="2"/><rect x="3.5" y="14.5" width="7" height="6" rx="2"/><rect x="13.5" y="14.5" width="7" height="6" rx="2"/></svg>보관함</a>
-      <a href="#inbox" data-view="inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 13l2.5-7.5h11L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h4.5l1.5 2.5h4l1.5-2.5H20"/></svg>받은 함<span class="badge" id="inboxBadge" hidden>0</span></a>
+      <a href="#inbox" data-view="inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 13l2.5-7.5h11L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 13h4.5l1.5 2.5h4l1.5-2.5H20"/></svg>분류함<span class="badge" id="inboxBadge" hidden>0</span></a>
       <a href="#notes" data-view="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 3.5h9l3.5 3.5v13.5H6z"/><path d="M14.5 3.5V7.5h4M9 12h6M9 16h6"/></svg>노트</a>
       <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>설정</a>
     </nav>
@@ -345,14 +350,14 @@ main{padding-block:var(--s7) var(--s8)}
         <button type="button" data-f="all" aria-pressed="false">전체</button>
       </div>
     </div>
-    <div class="tabs" id="catTabs" role="tablist" aria-label="분류"></div>
+    <div class="stickybar"><div class="tabs" id="catTabs" role="tablist" aria-label="분류"></div></div>
     <div class="grid" id="list"></div>
   </section>
 
-  <!-- 받은 함 -->
+  <!-- 분류함 -->
   <section class="view" id="v-inbox" hidden aria-labelledby="inboxH">
     <div class="head">
-      <h1 id="inboxH">받은 함</h1>
+      <h1 id="inboxH">분류함</h1>
       <p>자동으로 분류하지 못한 영상이에요. 맞는 분류를 한 번 누르면 다음 영상으로 넘어가요.</p>
     </div>
     <div id="triage" class="view" style="gap:var(--s4)"></div>
@@ -394,7 +399,7 @@ main{padding-block:var(--s7) var(--s8)}
 <div id="shareSheet" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="app.js?v=5"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
