@@ -14,5 +14,5 @@ window.REVIDE_CONFIG = {
   previewUrl: "https://revide-preview.chosuk1324.workers.dev",
 
   // ③ (선택) 아이폰 단축어 iCloud 링크
-  shortcutLink: ""
+  shortcutLink: "https://www.icloud.com/shortcuts/d248563435a44857be1439d1d80d119c"
 };
