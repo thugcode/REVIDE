@@ -1,0 +1,9 @@
+rules_version = '2';
+// Revide 보안 규칙: 로그인한 사람은 자기 데이터(users/자기아이디/...)만 읽고 쓸 수 있어요.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
